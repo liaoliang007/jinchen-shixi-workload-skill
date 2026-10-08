@@ -106,6 +106,35 @@ def generate(name, stu):
         body.remove(sign_el)
         title_el.addnext(sign_el)
 
+    # 2.5) 把样例中的教师名替换为当前教师（标题「XX指导学生实习工作量统计表」）
+    SAMPLE_NAME = '何贤江'
+    if name != SAMPLE_NAME:
+        def replace_name(root):
+            hit = 0
+            for p in root.iter(qn('w:p')):
+                ts = list(p.iter(qn('w:t')))
+                full = ''.join(t.text or '' for t in ts)
+                if SAMPLE_NAME not in full:
+                    continue
+                if any(SAMPLE_NAME in (t.text or '') for t in ts):
+                    for t in ts:
+                        if SAMPLE_NAME in (t.text or ''):
+                            t.text = (t.text or '').replace(SAMPLE_NAME, name)
+                            t.set(qn('xml:space'), 'preserve')
+                else:
+                    # 教师名被拆散在多个 run 时，整段重写到首个文本节点
+                    ts[0].text = full.replace(SAMPLE_NAME, name)
+                    ts[0].set(qn('xml:space'), 'preserve')
+                    for t in ts[1:]:
+                        t.text = ''
+                hit += 1
+            return hit
+        cnt = replace_name(body)
+        for sec in doc.sections:  # 页眉/页脚兜底
+            for part in (sec.header, sec.footer, sec.first_page_header, sec.first_page_footer):
+                cnt += replace_name(part._element)
+        print(f'  标题教师名替换: 何贤江->{name} 命中{cnt}处')
+
     # 3) 顶部页边距缩小为原来的 2/3（1800→1200缇），整体内容上移约两行
     for sec in doc.sections:
         sec.top_margin = sec.top_margin.__class__(int(sec.top_margin.twips * 2 / 3))
